@@ -43,6 +43,7 @@ const projectSchema = new mongoose.Schema(
     location: { type: String, trim: true, default: '' },
     startDate: { type: Date },
     targetDate: { type: Date },
+    actualEnd: { type: Date },
     projectValue: { type: Number, default: 0 },
     overallStatus: {
       type: String,
@@ -90,6 +91,7 @@ const projectSchema = new mongoose.Schema(
     ],
     remarks: { type: String, trim: true, default: '' },
     blockers: { type: String, trim: true, default: '' },
+    remarksOrBlockers: { type: String, trim: true, default: '' },
     ceoMdReview: {
       type: String,
       enum: ['Reviewed', 'Pending', 'Escalate', 'Scheduled', 'Closed', ''],
@@ -157,6 +159,10 @@ projectSchema.virtual('start').get(function start() {
 
 projectSchema.virtual('end').get(function end() {
   return this.targetDate;
+});
+
+projectSchema.virtual('actualEndDate').get(function actualEndDate() {
+  return this.actualEnd;
 });
 
 projectSchema.virtual('status').get(function status() {

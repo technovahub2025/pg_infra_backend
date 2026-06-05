@@ -10,6 +10,7 @@ const taskSchema = new mongoose.Schema(
       index: true,
     },
     description: { type: String, trim: true, default: '' },
+    startDate: { type: Date },
     project: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Project',
@@ -37,12 +38,13 @@ const taskSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ['todo', 'in-progress', 'review', 'done'],
       default: 'todo',
       index: true,
     },
     dueDate: { type: Date, index: true },
     completedAt: { type: Date },
+    nextAction: { type: String, trim: true, default: '' },
+    tags: [{ type: String, trim: true }],
     attachments: [
       {
         name: String,

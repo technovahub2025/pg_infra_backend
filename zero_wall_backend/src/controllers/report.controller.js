@@ -102,7 +102,7 @@ const getStageCompletion = asyncHandler(async (req, res) => {
 });
 
 const getEngineerUtilization = asyncHandler(async (req, res) => {
-  const engineers = await User.find({ role: { $in: ['admin', 'employee'] }, isActive: true }).sort({ name: 1 });
+  const engineers = await User.find({ role: { $in: ['admin', 'project_manager', 'employee'] }, isActive: true }).sort({ name: 1 });
   const tasks = await Task.find().populate('assignee', 'name');
   const logs = await TimerLog.find().populate('user', 'name');
 

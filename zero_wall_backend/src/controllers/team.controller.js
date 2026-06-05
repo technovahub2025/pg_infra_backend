@@ -8,6 +8,8 @@ const { emitToUser } = require('../config/socket');
 const { sanitizeUser } = require('../utils/sanitize');
 const { getClientUrl } = require('../utils/env');
 
+const allowedRoles = ['employee', 'admin', 'project_manager'];
+
 const listTeam = asyncHandler(async (req, res) => {
   const team = await TeamMember.find().sort({ name: 1 });
   return res.json({
@@ -110,7 +112,7 @@ const inviteMember = asyncHandler(async (req, res) => {
   const existing = await User.findOne({ email: String(email).toLowerCase() });
   const user = existing || new User({ email });
   user.name = name || user.name || email.split('@')[0];
-  user.role = role === 'admin' ? 'admin' : 'employee';
+  user.role = allowedRoles.includes(role) ? role : 'employee';
   user.phone = phone;
   user.designation = designation;
   user.department = department;
@@ -160,7 +162,7 @@ const changeMemberRole = asyncHandler(async (req, res) => {
     return res.status(404).json({ success: false, message: 'Member not found' });
   }
 
-  user.role = req.body.role === 'admin' ? 'admin' : 'employee';
+  user.role = allowedRoles.includes(req.body.role) ? req.body.role : 'employee';
   await user.save();
 
   emitToUser(String(user._id), 'role:changed', { role: user.role });

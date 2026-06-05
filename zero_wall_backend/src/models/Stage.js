@@ -64,6 +64,13 @@ const stageSchema = new mongoose.Schema(
     clientApprovalDate: { type: Date },
     clientComments: { type: String, trim: true, default: '' },
     nextAction: { type: String, trim: true, default: '' },
+    responsibleEngineer: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    approvalRequired: { type: String, trim: true, default: '' },
+    disciplines: { type: String, trim: true, default: '' },
+    duration: { type: String, trim: true, default: '' },
     completionPct: { type: Number, min: 0, max: 100, default: 0 },
     assignedTo: {
       type: mongoose.Schema.Types.ObjectId,

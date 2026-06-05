@@ -24,7 +24,7 @@ router.post('/logout', logout);
 router.get('/me', requireAuth, me);
 router.post('/forgot-password', forgotPassword);
 router.post('/reset-password/:token', resetPassword);
-router.post('/invite', requireAuth, requireRole('superadmin', 'admin'), inviteMember);
+router.post('/invite', requireAuth, requireRole('superadmin', 'admin', 'project_manager'), inviteMember);
 router.get('/invite/:token', validateInvite);
 router.post('/accept-invite/:token', acceptInvite);
 

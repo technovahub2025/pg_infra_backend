@@ -16,9 +16,11 @@ function serializeInvoice(invoice) {
     amountReceived: item.amountReceived || 0,
     balance: item.balance || 0,
     dueDate: item.dueDate || null,
+    paidDate: item.paidDate || null,
     remarks: item.remarks || '',
     paymentHistory: item.paymentHistory || [],
     createdBy: item.createdBy,
+    updatedBy: item.updatedBy,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
   };
@@ -122,8 +124,10 @@ const createInvoice = asyncHandler(async (req, res) => {
     amountTotal: Number(req.body.amountTotal || 0),
     amountReceived: Number(req.body.amountReceived || 0),
     dueDate: req.body.dueDate ? new Date(req.body.dueDate) : undefined,
+    paidDate: req.body.paidDate ? new Date(req.body.paidDate) : undefined,
     remarks: req.body.remarks || '',
     createdBy: req.user?.id || null,
+    updatedBy: req.user?.id || null,
     paymentHistory: Number(req.body.amountReceived || 0)
       ? [
           {
@@ -183,7 +187,12 @@ const updateInvoice = asyncHandler(async (req, res) => {
   if (req.body.amountTotal !== undefined) invoice.amountTotal = Number(req.body.amountTotal || 0);
   if (req.body.amountReceived !== undefined) invoice.amountReceived = Number(req.body.amountReceived || 0);
   if (req.body.dueDate !== undefined) invoice.dueDate = req.body.dueDate ? new Date(req.body.dueDate) : undefined;
+  if (req.body.paidDate !== undefined) invoice.paidDate = req.body.paidDate ? new Date(req.body.paidDate) : undefined;
   if (req.body.remarks !== undefined) invoice.remarks = req.body.remarks;
+  invoice.updatedBy = req.user?.id || invoice.updatedBy || null;
+  if (invoice.billingStatus === 'Paid' && !invoice.paidDate) {
+    invoice.paidDate = new Date();
+  }
 
   const receivedDelta = Number(invoice.amountReceived || 0) - previousReceived;
   if (receivedDelta !== 0) {

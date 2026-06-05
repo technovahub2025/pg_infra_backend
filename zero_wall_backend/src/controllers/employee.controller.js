@@ -32,7 +32,7 @@ function serializeEmployee(user) {
 }
 
 function normalizeRole(role) {
-  const allowed = ['admin', 'employee'];
+  const allowed = ['admin', 'project_manager', 'employee'];
   if (!role) return 'employee';
   return allowed.includes(role) ? role : 'employee';
 }
@@ -118,7 +118,7 @@ const getEmployee = asyncHandler(async (req, res) => {
 });
 
 const createEmployee = asyncHandler(async (req, res) => {
-  const { name, email, role, phone, designation, department, password, sendInvite = false, joiningDate } = req.body;
+  const { name, email, role, phone, designation, department, password, confirmPassword, sendInvite = false, joiningDate, avatar, isActive } = req.body;
   if (!email) {
     return res.status(400).json({ success: false, message: 'Email is required' });
   }
@@ -135,9 +135,13 @@ const createEmployee = asyncHandler(async (req, res) => {
   employee.designation = designation || employee.designation || '';
   employee.department = department || employee.department || '';
   employee.joiningDate = joiningDate ? new Date(joiningDate) : employee.joiningDate || new Date();
-  employee.isActive = !sendInvite;
+  employee.avatar = avatar ?? employee.avatar ?? '';
+  employee.isActive = typeof isActive === 'boolean' ? isActive : !sendInvite;
   employee.createdBy = req.user?.id || employee.createdBy || null;
   if (password) {
+    if (confirmPassword && password !== confirmPassword) {
+      return res.status(400).json({ success: false, message: 'Passwords do not match' });
+    }
     employee.password = password;
   }
 

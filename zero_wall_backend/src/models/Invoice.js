@@ -31,6 +31,7 @@ const invoiceSchema = new mongoose.Schema(
     amountReceived: { type: Number, default: 0 },
     balance: { type: Number, default: 0 },
     dueDate: { type: Date },
+    paidDate: { type: Date },
     remarks: { type: String, trim: true, default: '' },
     paymentHistory: [
       {
@@ -44,6 +45,10 @@ const invoiceSchema = new mongoose.Schema(
       },
     ],
     createdBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+    },
+    updatedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
     },

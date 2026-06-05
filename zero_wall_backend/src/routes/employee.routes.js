@@ -17,22 +17,22 @@ const { getEmployeeDocuments } = require('../controllers/upload.controller');
 
 const router = express.Router();
 
-router.get('/', requireAuth, requireRole('superadmin', 'admin'), listEmployees);
+router.get('/', requireAuth, requireRole('superadmin', 'admin', 'project_manager'), listEmployees);
 router.post(
   '/',
   requireAuth,
-  requireRole('superadmin', 'admin'),
+  requireRole('superadmin', 'admin', 'project_manager'),
   body('email').notEmpty().trim(),
   validateRequest,
   createEmployee,
 );
-router.get('/:id', requireAuth, requireRole('superadmin', 'admin'), getEmployee);
-router.put('/:id', requireAuth, requireRole('superadmin', 'admin'), updateEmployee);
-router.put('/:id/role', requireAuth, requireRole('superadmin'), updateEmployeeRole);
+router.get('/:id', requireAuth, requireRole('superadmin', 'admin', 'project_manager'), getEmployee);
+router.put('/:id', requireAuth, requireRole('superadmin', 'admin', 'project_manager'), updateEmployee);
+router.put('/:id/role', requireAuth, requireRole('superadmin', 'admin', 'project_manager'), updateEmployeeRole);
 router.delete('/:id', requireAuth, requireRole('superadmin'), deactivateEmployee);
-router.get('/:id/tasks', requireAuth, requireRole('superadmin', 'admin'), getEmployeeTasks);
-router.get('/:id/workload', requireAuth, requireRole('superadmin', 'admin'), getEmployeeWorkload);
-router.get('/:id/timesheets', requireAuth, requireRole('superadmin', 'admin'), getEmployeeTimesheets);
-router.get('/:id/documents', requireAuth, requireRole('superadmin', 'admin'), getEmployeeDocuments);
+router.get('/:id/tasks', requireAuth, requireRole('superadmin', 'admin', 'project_manager'), getEmployeeTasks);
+router.get('/:id/workload', requireAuth, requireRole('superadmin', 'admin', 'project_manager'), getEmployeeWorkload);
+router.get('/:id/timesheets', requireAuth, requireRole('superadmin', 'admin', 'project_manager'), getEmployeeTimesheets);
+router.get('/:id/documents', requireAuth, requireRole('superadmin', 'admin', 'project_manager'), getEmployeeDocuments);
 
 module.exports = router;

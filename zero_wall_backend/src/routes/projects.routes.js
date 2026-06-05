@@ -2,6 +2,7 @@ const express = require('express');
 const {
   createProject,
   deleteProject,
+  getKanbanOverview,
   getProject,
   getProjectSummary,
   listProjects,
@@ -17,23 +18,24 @@ const { requireAuth, requireRole } = require('../middleware/auth.middleware');
 
 const router = express.Router();
 
-router.get('/export/excel', requireAuth, requireRole('superadmin', 'admin'), exportProjects);
-router.get('/', requireAuth, requireRole('superadmin', 'admin'), listProjects);
-router.put('/reorder', requireAuth, requireRole('superadmin', 'admin'), reorderProjects);
+router.get('/export/excel', requireAuth, requireRole('superadmin', 'admin', 'project_manager'), exportProjects);
+router.get('/kanban-overview', requireAuth, requireRole('superadmin', 'admin', 'project_manager'), getKanbanOverview);
+router.get('/', requireAuth, requireRole('superadmin', 'admin', 'project_manager'), listProjects);
+router.put('/reorder', requireAuth, requireRole('superadmin', 'admin', 'project_manager'), reorderProjects);
 router.post(
   '/',
   requireAuth,
-  requireRole('superadmin', 'admin'),
+  requireRole('superadmin', 'admin', 'project_manager'),
   body('projectName').notEmpty().trim(),
   body('clientName').notEmpty().trim(),
   validateRequest,
   createProject,
 );
-router.get('/:id/summary', requireAuth, requireRole('superadmin', 'admin', 'employee'), getProjectSummary);
-router.get('/:id/documents', requireAuth, requireRole('superadmin', 'admin', 'employee'), getProjectDocuments);
-router.get('/:id', requireAuth, requireRole('superadmin', 'admin', 'employee'), getProject);
-router.get('/:projectId/stages', requireAuth, requireRole('superadmin', 'admin', 'employee'), listProjectStages);
-router.put('/:id', requireAuth, requireRole('superadmin', 'admin'), updateProject);
+router.get('/:id/summary', requireAuth, requireRole('superadmin', 'admin', 'project_manager', 'employee'), getProjectSummary);
+router.get('/:id/documents', requireAuth, requireRole('superadmin', 'admin', 'project_manager', 'employee'), getProjectDocuments);
+router.get('/:id', requireAuth, requireRole('superadmin', 'admin', 'project_manager', 'employee'), getProject);
+router.get('/:projectId/stages', requireAuth, requireRole('superadmin', 'admin', 'project_manager', 'employee'), listProjectStages);
+router.put('/:id', requireAuth, requireRole('superadmin', 'admin', 'project_manager'), updateProject);
 router.delete('/:id', requireAuth, requireRole('superadmin'), deleteProject);
 
 module.exports = router;

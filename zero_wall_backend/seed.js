@@ -13,6 +13,7 @@ const ActionItem = require('./src/models/ActionItem');
 const TeamMember = require('./src/models/TeamMember');
 const TimerLog = require('./src/models/TimerLog');
 const ActivityLog = require('./src/models/ActivityLog');
+const StageGuide = require('./src/models/StageGuide');
 
 const seedUsers = [
   {
@@ -71,9 +72,9 @@ const seedUsers = [
   },
   {
     name: 'Neha Iyer',
-    email: 'employee1@zerowall.app',
+    email: 'projectmanager1@zerowall.app',
     password: 'Password@123',
-    role: 'employee',
+    role: ' project_manager',
     designation: 'Structural Engineer',
     department: 'Structural',
     phone: '+91-9000000007',
@@ -680,6 +681,7 @@ async function seed() {
     RefreshToken.deleteMany({}),
     Project.deleteMany({}),
     Stage.deleteMany({}),
+    StageGuide.deleteMany({}),
     Task.deleteMany({}),
     ActionItem.deleteMany({}),
     TeamMember.deleteMany({}),
@@ -742,6 +744,14 @@ async function seed() {
     });
   }
 
+  for (const guide of stageGuideSeeds) {
+    await StageGuide.create({
+      ...guide,
+      createdBy: mdUserId,
+      updatedBy: mdUserId,
+    });
+  }
+
   const createdTasks = [];
   for (const task of taskSeeds) {
     const project = projectMap.get(task.projectKey);
@@ -760,7 +770,7 @@ async function seed() {
   }
 
   const taskMapByTitle = new Map(createdTasks.map((task) => [task.title, task]));
-  const timerSeeds = [
+const timerSeeds = [
     {
       userEmail: 'arjun@zerowall.app',
       taskTitle: 'Submit GFC drawings for client confirmation',
@@ -815,7 +825,21 @@ async function seed() {
       daysAgo: 5,
       hoursAgo: 2,
     },
-  ];
+];
+
+const stageGuideSeeds = [
+  { stageNo: 'Stage 1', stageName: 'Concept Design', approvalRequired: 'YES - Concept Approval', disciplines: 'Structural, Architectural, Electrical, PEB', duration: '2-3 Weeks', sequenceOrder: 1 },
+  { stageNo: 'Stage 2', stageName: 'Scheme Design', approvalRequired: 'YES - Scheme Approval', disciplines: 'Structural, Architectural, Electrical, PEB', duration: '3-4 Weeks', sequenceOrder: 2 },
+  { stageNo: 'Stage 3', stageName: 'Preliminary Design', approvalRequired: 'YES - Prelim. Design Approval', disciplines: 'Structural, Architectural', duration: '2-4 Weeks', sequenceOrder: 3 },
+  { stageNo: 'Stage 4', stageName: 'Structural Design', approvalRequired: 'YES - Design Approval', disciplines: 'Structural Engineering, PEB', duration: '3-6 Weeks', sequenceOrder: 4 },
+  { stageNo: 'Stage 5', stageName: 'Working Drawings', approvalRequired: 'YES - WD Approval for GFC', disciplines: 'All Disciplines', duration: '4-8 Weeks', sequenceOrder: 5 },
+  { stageNo: 'Stage 6', stageName: 'Detailed Engineering', approvalRequired: 'YES - Detailed Engg Approval', disciplines: 'Structural, Electrical, PEB', duration: '4-8 Weeks', sequenceOrder: 6 },
+  { stageNo: 'Stage 7', stageName: 'GFC Drawings', approvalRequired: 'YES - GFC Approval (CRITICAL)', disciplines: 'All Disciplines', duration: '2-4 Weeks', sequenceOrder: 7 },
+  { stageNo: 'Stage 8', stageName: 'Shop Drawings', approvalRequired: 'YES - Shop Drawing Approval', disciplines: 'PEB, Structural (Steel)', duration: '3-5 Weeks', sequenceOrder: 8 },
+  { stageNo: 'Stage 9', stageName: 'Site Supervision', approvalRequired: 'NO - Ongoing support', disciplines: 'All Disciplines', duration: 'Duration of construction', sequenceOrder: 9 },
+  { stageNo: 'Stage 10', stageName: 'As-Built Drawings', approvalRequired: 'YES - As-Built Approval', disciplines: 'All Disciplines', duration: '3-4 Weeks post completion', sequenceOrder: 10 },
+  { stageNo: 'Stage 11', stageName: 'Project Handover', approvalRequired: 'YES - Handover Acceptance', disciplines: 'All Disciplines', duration: '1-2 Weeks', sequenceOrder: 11 },
+];
 
   for (const entry of timerSeeds) {
     const task = taskMapByTitle.get(entry.taskTitle);

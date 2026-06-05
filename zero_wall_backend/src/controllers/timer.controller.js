@@ -3,6 +3,7 @@ const TimerLog = require('../models/TimerLog');
 const Task = require('../models/Task');
 const Project = require('../models/Project');
 const Stage = require('../models/Stage');
+const { logActivity } = require('../utils/logActivity');
 
 function serializeTimerLog(log) {
   const item = log.toObject ? log.toObject({ virtuals: true }) : log;
@@ -136,6 +137,25 @@ const stopTimer = asyncHandler(async (req, res) => {
   await active.save();
   await addDurationToTask(active.task, active.duration);
 
+  if (Number(active.duration || 0) >= 1800) {
+    await logActivity({
+      actor: req.user.id,
+      action: 'timer_warning',
+      entityType: 'timer',
+      entityId: active._id,
+      project: active.project,
+      title: 'Timer exceeded 30 minutes',
+      detail: `${Math.floor(Number(active.duration || 0) / 60)} minutes were logged on ${active.project ? 'this project' : 'the active task'}.`,
+      tone: 'amber',
+      link: '/my-timesheets',
+      metadata: {
+        taskId: active.task ? String(active.task) : null,
+        projectId: active.project ? String(active.project) : null,
+        duration: Number(active.duration || 0),
+      },
+    });
+  }
+
   const populated = await TimerLog.findById(active._id)
     .populate('task', 'title status project stage totalTimeLogged')
     .populate('project', 'projectName clientName currentStage overallStatus')
@@ -229,6 +249,25 @@ const createManualLog = asyncHandler(async (req, res) => {
   }
 
   await addDurationToTask(log.task, log.duration);
+
+  if (Number(log.duration || 0) >= 1800) {
+    await logActivity({
+      actor: req.user.id,
+      action: 'timer_warning',
+      entityType: 'timer',
+      entityId: log._id,
+      project: log.project,
+      title: 'Manual timer entry exceeded 30 minutes',
+      detail: `${Math.floor(Number(log.duration || 0) / 60)} minutes were logged manually.`,
+      tone: 'amber',
+      link: '/my-timesheets',
+      metadata: {
+        taskId: log.task ? String(log.task) : null,
+        projectId: log.project ? String(log.project) : null,
+        duration: Number(log.duration || 0),
+      },
+    });
+  }
 
   const populated = await TimerLog.findById(log._id)
     .populate('task', 'title status project stage totalTimeLogged')

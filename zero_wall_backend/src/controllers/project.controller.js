@@ -8,6 +8,26 @@ const { notifyAdmins, createNotification } = require('../utils/createNotificatio
 const { emitToProject, emitToAll } = require('../config/socket');
 const { sanitizeProjectData } = require('../utils/sanitize');
 const { logActivity } = require('../utils/logActivity');
+const { upsertClientProjectLink, removeProjectFromClient } = require('../utils/clientSync');
+
+const KANBAN_OVERVIEW_STAGES = [
+  'Concept Design',
+  'Scheme Design',
+  'Preliminary Design',
+  'Structural Design',
+  'Working Drawings',
+  'Detailed Engineering',
+  'GFC Drawings',
+  'Shop Drawings',
+  'Site Supervision',
+  'As-Built Drawings',
+  'Project Handover',
+];
+
+const KANBAN_OVERVIEW_STAGE_ALIASES = {
+  'Load Schedule & SLD': 'Detailed Engineering',
+  'Panel Schedule & Drawings': 'Detailed Engineering',
+};
 
 function getPagination(req) {
   const page = Math.max(1, Number.parseInt(req.query.page || '1', 10) || 1);
@@ -28,6 +48,11 @@ function normalizeProjectInput(body = {}, existing = null) {
 
   const overallStatus = body.overallStatus || existing?.overallStatus || 'In Progress';
   const currentStage = body.currentStage || existing?.currentStage || 'Concept Design';
+  const combinedRemarks = [body.remarks, body.blockers].filter(Boolean).join(' | ');
+  const remarksOrBlockers =
+    body.remarksOrBlockers !== undefined
+      ? body.remarksOrBlockers
+      : combinedRemarks || existing?.remarksOrBlockers || '';
 
   return {
     sNo: Number.isFinite(Number(body.sNo)) ? Number(body.sNo) : existing?.sNo,
@@ -38,6 +63,7 @@ function normalizeProjectInput(body = {}, existing = null) {
     location: body.location ?? existing?.location ?? '',
     startDate: toDate(body.startDate ?? body.start, existing?.startDate),
     targetDate: toDate(body.targetDate ?? body.end, existing?.targetDate),
+    actualEnd: toDate(body.actualEnd ?? body.actualEndDate, existing?.actualEnd),
     projectValue: Number.isFinite(Number(body.projectValue ?? body.value))
       ? Number(body.projectValue ?? body.value)
       : existing?.projectValue || 0,
@@ -51,8 +77,9 @@ function normalizeProjectInput(body = {}, existing = null) {
     nextActionRequired: body.nextActionRequired ?? body.nextAction ?? existing?.nextActionRequired ?? '',
     responsibleEngineer: body.responsibleEngineer ?? existing?.responsibleEngineer ?? null,
     assignedTeam: Array.isArray(body.assignedTeam) ? body.assignedTeam : existing?.assignedTeam || [],
-    remarks: body.remarks ?? existing?.remarks ?? '',
-    blockers: body.blockers ?? existing?.blockers ?? '',
+    remarks: body.remarks ?? existing?.remarks ?? remarksOrBlockers,
+    blockers: body.blockers ?? existing?.blockers ?? remarksOrBlockers,
+    remarksOrBlockers,
     ceoMdReview: body.ceoMdReview ?? existing?.ceoMdReview ?? '',
     priority: body.priority ?? existing?.priority ?? 'Medium',
     invoiceStatus: body.invoiceStatus ?? existing?.invoiceStatus ?? '',
@@ -94,6 +121,7 @@ function serializeProject(project) {
     location: doc.location,
     startDate: doc.startDate,
     targetDate: doc.targetDate,
+    actualEnd: doc.actualEnd,
     projectValue: doc.projectValue,
     overallStatus: doc.overallStatus,
     currentStage: doc.currentStage,
@@ -105,10 +133,12 @@ function serializeProject(project) {
     assignedTeam: doc.assignedTeam || [],
     remarks: doc.remarks,
     blockers: doc.blockers,
+    remarksOrBlockers: doc.remarksOrBlockers,
     ceoMdReview: doc.ceoMdReview,
     priority: doc.priority,
     invoiceStatus: doc.invoiceStatus,
     estimatedCompletion: doc.estimatedCompletion,
+    taskCount: Number(doc.taskCount || 0),
     recv: doc.recv || 0,
     balance: doc.balance || 0,
     isArchived: doc.isArchived,
@@ -121,6 +151,7 @@ function serializeProject(project) {
     typeShort: Array.isArray(doc.projectType) ? doc.projectType[0] || '' : '',
     start: doc.startDate,
     end: doc.targetDate,
+    actualEndDate: doc.actualEnd,
     value: doc.projectValue,
     status: doc.overallStatus,
     stage: doc.currentStage,
@@ -129,6 +160,13 @@ function serializeProject(project) {
     approval: doc.clientApprovalStatus,
     billing: doc.invoiceStatus,
   };
+}
+
+function normalizeKanbanStage(stage) {
+  const raw = String(stage || '').trim();
+  if (!raw) return KANBAN_OVERVIEW_STAGES[0];
+  if (KANBAN_OVERVIEW_STAGES.includes(raw)) return raw;
+  return KANBAN_OVERVIEW_STAGE_ALIASES[raw] || raw;
 }
 
 async function applyEngineerNames(projects) {
@@ -233,6 +271,7 @@ const createProject = asyncHandler(async (req, res) => {
   const project = await Project.create(payload);
   const populated = await applyEngineerNames([project]);
   const projectRow = serializeProject(populated[0]);
+  await upsertClientProjectLink(project);
 
   const io = req.app.get('io');
   if (io) {
@@ -285,6 +324,8 @@ const updateProject = asyncHandler(async (req, res) => {
 
   const populated = await applyEngineerNames([project]);
   const projectRow = serializeProject(populated[0]);
+  await removeProjectFromClient(existing._id, existing.clientName);
+  await upsertClientProjectLink(project);
   const io = req.app.get('io');
   if (io) {
     io.emit('project:updated', projectRow);
@@ -323,6 +364,7 @@ const deleteProject = asyncHandler(async (req, res) => {
     Task.deleteMany({ project: project._id }),
     Project.findByIdAndDelete(project._id),
   ]);
+  await removeProjectFromClient(project._id, project.clientName);
 
   const io = req.app.get('io');
   if (io) {
@@ -405,6 +447,57 @@ const listProjectStages = asyncHandler(async (req, res) => {
   });
 });
 
+const getKanbanOverview = asyncHandler(async (req, res) => {
+  const projects = await Project.find({ isArchived: false }).sort({ sNo: 1, createdAt: -1 });
+  const populated = await applyEngineerNames(projects);
+  const projectIds = populated.map((project) => project._id);
+
+  const taskCounts = projectIds.length
+    ? await Task.aggregate([
+      { $match: { project: { $in: projectIds } } },
+      { $group: { _id: '$project', count: { $sum: 1 } } },
+    ])
+    : [];
+  const taskCountMap = taskCounts.reduce((acc, row) => {
+    acc[String(row._id)] = row.count || 0;
+    return acc;
+  }, {});
+
+  const rows = populated.map((project) => {
+    const projectRow = serializeProject(project);
+    const currentStage = normalizeKanbanStage(projectRow.currentStage);
+    return {
+      ...projectRow,
+      currentStage,
+      taskCount: taskCountMap[String(projectRow.id)] || 0,
+    };
+  });
+
+  const columns = KANBAN_OVERVIEW_STAGES.map((stage) => ({
+    id: stage,
+    title: stage,
+    count: rows.filter((project) => project.currentStage === stage).length,
+  }));
+
+  const stats = {
+    totalProjects: rows.length,
+    activeProjects: rows.filter((project) => project.overallStatus === 'In Progress').length,
+    completedProjects: rows.filter((project) => project.overallStatus === 'Completed').length,
+    onHoldProjects: rows.filter((project) => project.overallStatus === 'On Hold').length,
+    criticalProjects: rows.filter((project) => String(project.priority).toLowerCase() === 'critical').length,
+    taskCount: rows.reduce((sum, project) => sum + Number(project.taskCount || 0), 0),
+  };
+
+  return res.json({
+    success: true,
+    data: {
+      projects: rows,
+      columns,
+      stats,
+    },
+  });
+});
+
 module.exports = {
   listProjects,
   getProject,
@@ -415,5 +508,6 @@ module.exports = {
   getProjectSummary,
   exportProjects,
   listProjectStages,
+  getKanbanOverview,
   serializeProject,
 };

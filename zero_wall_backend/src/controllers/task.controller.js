@@ -9,6 +9,8 @@ const { emitToProject } = require('../config/socket');
 const { logActivity } = require('../utils/logActivity');
 const mongoose = require('mongoose');
 
+const MAX_TASKS_PER_REQUEST = 50;
+
 function serializeTask(task) {
   const doc = task.toObject ? task.toObject({ virtuals: true }) : task;
   return {
@@ -21,8 +23,11 @@ function serializeTask(task) {
     backupReviewer: doc.backupReviewer,
     priority: doc.priority,
     status: doc.status,
+    startDate: doc.startDate,
     dueDate: doc.dueDate,
     completedAt: doc.completedAt,
+    nextAction: doc.nextAction,
+    tags: doc.tags || [],
     attachments: doc.attachments || [],
     comments: doc.comments || [],
     order: doc.order,
@@ -35,6 +40,53 @@ function serializeTask(task) {
 
 function escapeRegex(value = '') {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function parseTaskLimit(value) {
+  const parsed = Number.parseInt(value ?? `${MAX_TASKS_PER_REQUEST}`, 10);
+  if (!Number.isFinite(parsed) || parsed <= 0) return MAX_TASKS_PER_REQUEST;
+  return Math.min(parsed, MAX_TASKS_PER_REQUEST);
+}
+
+function parseTaskScope(req) {
+  const projectId = String(req.query.project || '').trim();
+  const mine = ['true', '1', 'yes'].includes(String(req.query.mine || '').trim().toLowerCase());
+  if (projectId) {
+    return { type: 'project', projectId };
+  }
+  if (mine) {
+    return { type: 'mine' };
+  }
+  return null;
+}
+
+function buildTaskFilter(req) {
+  const scope = parseTaskScope(req);
+  if (!scope) {
+    return { error: 'Project or mine scope is required' };
+  }
+
+  const filter = {};
+  if (scope.type === 'project') {
+    if (!['superadmin', 'admin', 'project_manager'].includes(req.user?.role)) {
+      return { error: 'Forbidden', code: 403 };
+    }
+    filter.project = scope.projectId;
+  } else {
+    filter.assignee = req.user?.id;
+  }
+
+  if (req.query.assignee) filter.assignee = req.query.assignee;
+  if (req.query.status) filter.status = req.query.status;
+  if (req.query.priority) filter.priority = req.query.priority;
+
+  const search = String(req.query.search || '').trim();
+  if (search) {
+    const regex = new RegExp(escapeRegex(search), 'i');
+    filter.$or = [{ title: regex }, { description: regex }];
+  }
+
+  return { filter, scope };
 }
 
 async function resolveStageForProject(projectId, stageValue) {
@@ -80,11 +132,17 @@ function normalizeTaskInput(body = {}, existing = null) {
   const stage = body.stage ?? body.stageId ?? existing?.stage ?? null;
   const assignee = body.assignee ?? body.assigneeId ?? existing?.assignee ?? null;
   const backupReviewer = body.backupReviewer ?? body.backupReviewerId ?? existing?.backupReviewer ?? null;
+  const tags = Array.isArray(body.tags)
+    ? body.tags.filter(Boolean).map((item) => String(item).trim()).filter(Boolean)
+    : typeof body.tags === 'string'
+      ? body.tags.split(',').map((item) => String(item).trim()).filter(Boolean)
+      : existing?.tags || [];
 
   return {
     title: body.title ?? existing?.title ?? '',
     description: body.description ?? existing?.description ?? '',
     project: body.project ?? existing?.project ?? null,
+    startDate: toDate(body.startDate, existing?.startDate || null),
     stage: stage === '' ? null : stage,
     assignee: assignee === '' ? null : assignee,
     backupReviewer: backupReviewer === '' ? null : backupReviewer,
@@ -92,6 +150,8 @@ function normalizeTaskInput(body = {}, existing = null) {
     status: body.status ?? existing?.status ?? 'todo',
     dueDate: toDate(body.dueDate, existing?.dueDate || null),
     completedAt: toDate(body.completedAt, existing?.completedAt || null),
+    nextAction: body.nextAction ?? existing?.nextAction ?? '',
+    tags,
     attachments: Array.isArray(body.attachments) ? body.attachments : existing?.attachments || [],
     order: Number.isFinite(Number(body.order ?? existing?.order))
       ? Number(body.order ?? existing?.order)
@@ -111,38 +171,42 @@ async function canAccessTask(req, task) {
 }
 
 const listTasks = asyncHandler(async (req, res) => {
-  const filter = {};
-  if (req.query.project) filter.project = req.query.project;
-  if (req.query.assignee) filter.assignee = req.query.assignee;
-  if (req.query.status) filter.status = req.query.status;
-  if (req.query.priority) filter.priority = req.query.priority;
+  const scoped = buildTaskFilter(req);
+  if (scoped.error) {
+    return res.status(scoped.code || 400).json({ success: false, message: scoped.error });
+  }
 
-  let tasks = await Task.find(filter)
+  const { filter } = scoped;
+  const limit = parseTaskLimit(req.query.limit);
+  const total = await Task.countDocuments(filter);
+  const tasks = await Task.find(filter)
     .sort({ order: 1, dueDate: 1, createdAt: -1 })
+    .limit(limit)
     .populate('project', 'projectName clientName overallStatus currentStage stageCompletion projectValue companySegment')
     .populate('stage', 'stageName stageNo')
     .populate('assignee', 'name email role avatar employeeId designation department')
     .populate('backupReviewer', 'name email role avatar')
     .populate('createdBy', 'name email role avatar');
 
-  if (req.query.search) {
-    const search = String(req.query.search).trim().toLowerCase();
-    tasks = tasks.filter(
-      (task) =>
-        task.title.toLowerCase().includes(search) ||
-        (task.description || '').toLowerCase().includes(search),
-    );
-  }
-
   return res.json({
     success: true,
-    data: tasks.map(serializeTask),
+    data: {
+      tasks: tasks.map(serializeTask),
+      total,
+      limit,
+      hasMore: total > limit,
+      scope: scoped.scope.type,
+    },
   });
 });
 
 const getMyTasks = asyncHandler(async (req, res) => {
-  const tasks = await Task.find({ assignee: req.user.id })
+  const limit = parseTaskLimit(req.query.limit);
+  const filter = { assignee: req.user.id };
+  const total = await Task.countDocuments(filter);
+  const tasks = await Task.find(filter)
     .sort({ dueDate: 1, order: 1 })
+    .limit(limit)
     .populate('project', 'projectName clientName overallStatus currentStage stageCompletion projectValue companySegment')
     .populate('stage', 'stageName stageNo')
     .populate('assignee', 'name email role avatar employeeId designation department')
@@ -151,7 +215,13 @@ const getMyTasks = asyncHandler(async (req, res) => {
 
   return res.json({
     success: true,
-    data: tasks.map(serializeTask),
+    data: {
+      tasks: tasks.map(serializeTask),
+      total,
+      limit,
+      hasMore: total > limit,
+      scope: 'mine',
+    },
   });
 });
 
@@ -342,6 +412,109 @@ const reorderTasks = asyncHandler(async (req, res) => {
   return res.json({ success: true, message: 'Tasks reordered' });
 });
 
+const getTaskCounts = asyncHandler(async (req, res) => {
+  const scoped = buildTaskFilter(req);
+  if (scoped.error) {
+    return res.status(scoped.code || 400).json({ success: false, message: scoped.error });
+  }
+
+  const match = scoped.filter;
+  const now = new Date();
+  const dueSoon = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+  const [totals, byStatusRows, byPriorityRows] = await Promise.all([
+    Task.aggregate([
+      { $match: match },
+      {
+        $group: {
+          _id: null,
+          total: { $sum: 1 },
+          open: {
+            $sum: {
+              $cond: [{ $ne: ['$status', 'done'] }, 1, 0],
+            },
+          },
+          done: {
+            $sum: {
+              $cond: [{ $eq: ['$status', 'done'] }, 1, 0],
+            },
+          },
+          overdue: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $ne: ['$status', 'done'] },
+                    { $ne: ['$dueDate', null] },
+                    { $lt: ['$dueDate', now] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+          dueSoon: {
+            $sum: {
+              $cond: [
+                {
+                  $and: [
+                    { $ne: ['$status', 'done'] },
+                    { $ne: ['$dueDate', null] },
+                    { $gte: ['$dueDate', now] },
+                    { $lte: ['$dueDate', dueSoon] },
+                  ],
+                },
+                1,
+                0,
+              ],
+            },
+          },
+        },
+      },
+    ]),
+    Task.aggregate([
+      { $match: match },
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+      { $sort: { _id: 1 } },
+    ]),
+    Task.aggregate([
+      { $match: match },
+      { $group: { _id: '$priority', count: { $sum: 1 } } },
+      { $sort: { _id: 1 } },
+    ]),
+  ]);
+
+  const byStatus = byStatusRows.reduce((acc, row) => {
+    acc[row._id || 'todo'] = row.count;
+    return acc;
+  }, {});
+  const byPriority = byPriorityRows.reduce((acc, row) => {
+    acc[row._id || 'Medium'] = row.count;
+    return acc;
+  }, {});
+  const counts = totals[0] || {
+    total: 0,
+    open: 0,
+    done: 0,
+    overdue: 0,
+    dueSoon: 0,
+  };
+
+  return res.json({
+    success: true,
+    data: {
+      scope: scoped.scope.type,
+      total: counts.total || 0,
+      open: counts.open || 0,
+      done: counts.done || 0,
+      overdue: counts.overdue || 0,
+      dueSoon: counts.dueSoon || 0,
+      byStatus,
+      byPriority,
+    },
+  });
+});
+
 const addComment = asyncHandler(async (req, res) => {
   const task = await Task.findById(req.params.id);
   if (!task) {
@@ -420,5 +593,6 @@ module.exports = {
   deleteTask,
   reorderTasks,
   addComment,
+  getTaskCounts,
   serializeTask,
 };

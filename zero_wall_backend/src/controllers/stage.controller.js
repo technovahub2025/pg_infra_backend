@@ -25,6 +25,10 @@ function serializeStage(stage) {
     clientApprovalDate: doc.clientApprovalDate,
     clientComments: doc.clientComments,
     nextAction: doc.nextAction,
+    responsibleEngineer: doc.responsibleEngineer,
+    approvalRequired: doc.approvalRequired,
+    disciplines: doc.disciplines,
+    duration: doc.duration,
     completionPct: doc.completionPct,
     assignedTo: doc.assignedTo,
     approvedBy: doc.approvedBy,
@@ -55,6 +59,10 @@ function normalizeStageInput(body = {}, existing = null) {
     clientApprovalDate: toDate(body.clientApprovalDate, existing?.clientApprovalDate || null),
     clientComments: body.clientComments ?? existing?.clientComments ?? '',
     nextAction: body.nextAction ?? existing?.nextAction ?? '',
+    responsibleEngineer: body.responsibleEngineer ?? existing?.responsibleEngineer ?? null,
+    approvalRequired: body.approvalRequired ?? existing?.approvalRequired ?? '',
+    disciplines: body.disciplines ?? existing?.disciplines ?? '',
+    duration: body.duration ?? existing?.duration ?? '',
     completionPct: Number.isFinite(Number(body.completionPct ?? body.completion))
       ? Number(body.completionPct ?? body.completion)
       : existing?.completionPct || 0,

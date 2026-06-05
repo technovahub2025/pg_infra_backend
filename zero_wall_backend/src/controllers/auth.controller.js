@@ -15,7 +15,7 @@ const {
 const { verifyRefreshToken } = require('../utils/jwt');
 const { getClientUrl } = require('../utils/env');
 
-const allowedRoles = ['superadmin', 'admin', 'employee'];
+const allowedRoles = ['superadmin', 'admin', 'project_manager', 'employee'];
 
 function cookieOptions() {
   return {
