@@ -1,4 +1,4 @@
-const asyncHandler = require('../utils/asyncHandler');
+﻿const asyncHandler = require('../utils/asyncHandler');
 const TimerLog = require('../models/TimerLog');
 const Task = require('../models/Task');
 const Project = require('../models/Project');
@@ -6,6 +6,7 @@ const Stage = require('../models/Stage');
 const TaskTimeExtensionRequest = require('../models/TaskTimeExtensionRequest');
 const { emitToAll } = require('../config/socket');
 const { logActivity } = require('../utils/logActivity');
+const { defaultBillableFromProject } = require('../utils/timesheet');
 
 function serializeTimerLog(log) {
   const item = log.toObject ? log.toObject({ virtuals: true }) : log;
@@ -21,6 +22,7 @@ function serializeTimerLog(log) {
     note: item.note || '',
     date: item.date,
     isManual: item.isManual,
+    isBillable: item.isBillable,
     isActive: item.isActive,
     createdAt: item.createdAt,
     updatedAt: item.updatedAt,
@@ -150,6 +152,7 @@ const startTimer = asyncHandler(async (req, res) => {
     note,
     date: normalizeDateOnly(),
     isManual: false,
+    isBillable: defaultBillableFromProject(project),
     isActive: true,
   });
 
@@ -306,6 +309,7 @@ const createManualLog = asyncHandler(async (req, res) => {
     note,
     date: date ? normalizeDateOnly(date) : normalizeDateOnly(),
     isManual: true,
+    isBillable: defaultBillableFromProject(project),
     isActive: false,
   });
 
@@ -378,3 +382,4 @@ module.exports = {
   groupLogsByDate,
   buildDailySummary,
 };
+

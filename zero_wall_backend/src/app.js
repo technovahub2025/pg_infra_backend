@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
 const cookieParser = require('cookie-parser');
@@ -25,6 +25,7 @@ const kanbanRoutes = require('./routes/kanban.routes');
 const uploadRoutes = require('./routes/upload.routes');
 const employeeRoutes = require('./routes/employee.routes');
 const timerRoutes = require('./routes/timer.routes');
+const timesheetRoutes = require('./routes/timesheet.routes');
 const { notFound, errorHandler } = require('./middleware/error.middleware');
 const {
   securityHeaders,
@@ -87,6 +88,7 @@ app.use('/api/kanban', kanbanRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/timer', timerRoutes);
+app.use('/api/timesheet-filters', timesheetRoutes);
 app.use('/api/employees', employeeRoutes);
 
 app.get('/', (req, res) => {
@@ -100,3 +102,4 @@ app.use(notFound);
 app.use(errorHandler);
 
 module.exports = app;
+

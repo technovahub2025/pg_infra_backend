@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+﻿const mongoose = require('mongoose');
 
 const TimerLogSchema = new mongoose.Schema(
   {
@@ -51,6 +51,11 @@ const TimerLogSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+    isBillable: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
     isActive: {
       type: Boolean,
       default: false,
@@ -61,6 +66,10 @@ const TimerLogSchema = new mongoose.Schema(
 );
 
 TimerLogSchema.index({ user: 1, date: -1 });
+TimerLogSchema.index({ user: 1, project: 1, date: -1 });
+TimerLogSchema.index({ user: 1, task: 1, date: -1 });
+TimerLogSchema.index({ user: 1, isManual: 1, date: -1 });
+TimerLogSchema.index({ user: 1, isBillable: 1, date: -1 });
 TimerLogSchema.index({ project: 1, createdAt: -1 });
 TimerLogSchema.index({ task: 1, createdAt: -1 });
 TimerLogSchema.index({ user: 1, isActive: 1 });

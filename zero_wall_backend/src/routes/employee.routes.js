@@ -1,4 +1,4 @@
-const express = require('express');
+﻿const express = require('express');
 const { body } = require('express-validator');
 const validateRequest = require('../middleware/validateRequest');
 const { requireAuth, requireRole } = require('../middleware/auth.middleware');
@@ -8,11 +8,16 @@ const {
   getEmployee,
   getEmployeeTasks,
   getEmployeeWorkload,
-  getEmployeeTimesheets,
   listEmployees,
   updateEmployee,
   updateEmployeeRole,
 } = require('../controllers/employee.controller');
+const {
+  bulkDeleteTimesheets,
+  bulkUpdateTimesheets,
+  exportTimesheets,
+  getEmployeeTimesheets,
+} = require('../controllers/timesheet.controller');
 const { getEmployeeDocuments } = require('../controllers/upload.controller');
 
 const router = express.Router();
@@ -33,6 +38,9 @@ router.delete('/:id', requireAuth, requireRole('superadmin'), deactivateEmployee
 router.get('/:id/tasks', requireAuth, requireRole('superadmin', 'admin', 'project_manager'), getEmployeeTasks);
 router.get('/:id/workload', requireAuth, requireRole('superadmin', 'admin', 'project_manager'), getEmployeeWorkload);
 router.get('/:id/timesheets', requireAuth, requireRole('superadmin', 'admin', 'project_manager'), getEmployeeTimesheets);
+router.get('/:id/timesheets/export', requireAuth, requireRole('superadmin', 'admin', 'project_manager'), exportTimesheets);
+router.post('/:id/timesheets/bulk-update', requireAuth, requireRole('superadmin', 'admin', 'project_manager'), bulkUpdateTimesheets);
+router.post('/:id/timesheets/bulk-delete', requireAuth, requireRole('superadmin', 'admin', 'project_manager'), bulkDeleteTimesheets);
 router.get('/:id/documents', requireAuth, requireRole('superadmin', 'admin', 'project_manager'), getEmployeeDocuments);
 
 module.exports = router;
