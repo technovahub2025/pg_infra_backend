@@ -139,8 +139,12 @@ const listEmployees = asyncHandler(async (req, res) => {
   const search = String(req.query.search || '').trim();
   const department = String(req.query.department || '').trim();
   const role = String(req.query.role || '').trim();
+  const canViewSuperadmin = req.user?.role === 'superadmin';
 
-  const filter = { role: { $ne: 'superadmin' } };
+  const filter = {};
+  if (!canViewSuperadmin) {
+    filter.role = { $ne: 'superadmin' };
+  }
   if (search) {
     filter.$or = [
       { name: { $regex: search, $options: 'i' } },
@@ -377,6 +381,16 @@ const deleteEmployee = asyncHandler(async (req, res) => {
   const employee = await User.findById(req.params.id);
   if (!employee) {
     return res.status(404).json({ success: false, message: 'Employee not found' });
+  }
+
+  if (employee.role === 'superadmin') {
+    const superadminCount = await User.countDocuments({ role: 'superadmin' });
+    if (superadminCount <= 1) {
+      return res.status(400).json({
+        success: false,
+        message: 'The last superadmin account cannot be deleted',
+      });
+    }
   }
 
   const data = serializeEmployee(employee);
