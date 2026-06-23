@@ -892,7 +892,7 @@ async function bulkDeleteTimesheets(req, res) {
 
 function buildSelectedRows(logs = []) {
   return logs.map((log) => ({
-    date: formatDateKey(log.date || log.startTime || log.createdAt),
+    date: `\t${formatDateKey(log.date || log.startTime || log.createdAt)}`,
     startTime: log.startTime ? new Date(log.startTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '',
     endTime: log.endTime ? new Date(log.endTime).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '',
     project: log.projectName || log.project?.projectName || '',
