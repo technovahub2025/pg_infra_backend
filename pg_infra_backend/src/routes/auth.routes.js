@@ -3,7 +3,6 @@ const {
   register,
   login,
   me,
-  refresh,
   refreshToken,
   logout,
   forgotPassword,
@@ -18,7 +17,6 @@ const router = express.Router();
 
 router.post('/register', register);
 router.post('/login', login);
-router.post('/refresh', refresh);
 router.post('/refresh-token', refreshToken);
 router.post('/logout', logout);
 router.get('/me', requireAuth, me);

@@ -3,6 +3,7 @@ const DEFAULT_PRODUCTION_CLIENT_URLS = [
   'https://technovahub.in',
   'https://www.technovahub.in',
 ];
+const TECHNOVAHUB_ORIGIN_PATTERN = /^https:\/\/([a-z0-9-]+\.)?technovahub\.in$/i;
 
 function normalizeOrigin(value) {
   const normalized = String(value || '').trim().replace(/[.,/]+$/, '');
@@ -36,8 +37,17 @@ function getClientUrl() {
   return getClientUrls()[0] || DEFAULT_CLIENT_URL;
 }
 
+function isAllowedClientOrigin(origin) {
+  const normalized = normalizeOrigin(origin);
+  if (!normalized) return false;
+  if (getClientUrls().includes(normalized)) return true;
+  if (process.env.NODE_ENV === 'production' && TECHNOVAHUB_ORIGIN_PATTERN.test(normalized)) return true;
+  return false;
+}
+
 module.exports = {
   getClientUrl,
   getClientUrls,
+  isAllowedClientOrigin,
   normalizeOrigin,
 };

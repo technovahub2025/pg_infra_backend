@@ -35,7 +35,7 @@ const {
   jsonSizeLimit,
   cacheControl,
 } = require('./middleware/performanceMiddleware');
-const { getClientUrls } = require('./utils/env');
+const { getClientUrls, isAllowedClientOrigin } = require('./utils/env');
 const { issueCsrfToken, requireCsrf } = require('./middleware/csrf');
 
 const app = express();
@@ -44,7 +44,7 @@ app.disable('x-powered-by');
 const allowedOrigins = getClientUrls();
 const corsOptions = {
   origin(origin, callback) {
-    if (!origin || allowedOrigins.includes(origin)) {
+    if (!origin || isAllowedClientOrigin(origin)) {
       callback(null, true);
       return;
     }

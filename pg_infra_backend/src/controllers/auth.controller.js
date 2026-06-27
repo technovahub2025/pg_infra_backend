@@ -22,7 +22,7 @@ function cookieOptions() {
   return {
     httpOnly: true,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
   };
 }
 
@@ -498,13 +498,10 @@ const acceptInvite = asyncHandler(async (req, res) => {
   return sendTokenResponse(user, 200, res);
 });
 
-const refresh = refreshToken;
-
 module.exports = {
   register,
   login,
   me,
-  refresh,
   refreshToken,
   logout,
   forgotPassword,

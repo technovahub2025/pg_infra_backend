@@ -11,7 +11,7 @@ function csrfCookieOptions() {
   return {
     httpOnly: false,
     secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
   };
 }
 
@@ -35,8 +35,12 @@ function requireCsrf(req, res, next) {
     return next();
   }
 
-  const hasCookieAuth = Boolean(req.cookies?.refreshToken || req.cookies?.accessToken);
   const hasBearerAuth = Boolean(String(req.headers.authorization || '').startsWith('Bearer '));
+  if (hasBearerAuth) {
+    return next();
+  }
+
+  const hasCookieAuth = Boolean(req.cookies?.refreshToken || req.cookies?.accessToken);
   if (!hasCookieAuth && !hasBearerAuth) {
     return next();
   }
