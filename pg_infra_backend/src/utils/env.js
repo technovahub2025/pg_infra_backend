@@ -1,9 +1,22 @@
 const DEFAULT_CLIENT_URL = 'http://localhost:5173';
+const DEFAULT_DEVELOPMENT_CLIENT_URLS = [
+  DEFAULT_CLIENT_URL,
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+];
 const DEFAULT_PRODUCTION_CLIENT_URLS = [
   'https://technovahub.in',
   'https://www.technovahub.in',
 ];
 const TECHNOVAHUB_ORIGIN_PATTERN = /^https:\/\/([a-z0-9-]+\.)?technovahub\.in$/i;
+
+function isProductionLike() {
+  return (
+    process.env.NODE_ENV === 'production' ||
+    String(process.env.RENDER || '').toLowerCase() === 'true' ||
+    Boolean(process.env.RENDER_SERVICE_ID || process.env.RENDER_EXTERNAL_URL || process.env.RENDER_SERVICE_NAME)
+  );
+}
 
 function normalizeOrigin(value) {
   const normalized = String(value || '').trim().replace(/[.,/]+$/, '');
@@ -21,16 +34,12 @@ function getClientUrls() {
     .flatMap((value) => String(value).split(','));
 
   const urls = rawValues.map(normalizeOrigin).filter(Boolean);
-  if (urls.length > 0) {
-    const merged = process.env.NODE_ENV === 'production'
-      ? [...urls, ...DEFAULT_PRODUCTION_CLIENT_URLS]
-      : urls;
-    return [...new Set(merged.map(normalizeOrigin).filter(Boolean))];
-  }
-
-  return process.env.NODE_ENV === 'production'
-    ? DEFAULT_PRODUCTION_CLIENT_URLS
-    : [DEFAULT_CLIENT_URL];
+  const merged = [
+    ...urls,
+    ...DEFAULT_PRODUCTION_CLIENT_URLS,
+    ...DEFAULT_DEVELOPMENT_CLIENT_URLS,
+  ];
+  return [...new Set(merged.map(normalizeOrigin).filter(Boolean))];
 }
 
 function getClientUrl() {
@@ -41,7 +50,7 @@ function isAllowedClientOrigin(origin) {
   const normalized = normalizeOrigin(origin);
   if (!normalized) return false;
   if (getClientUrls().includes(normalized)) return true;
-  if (process.env.NODE_ENV === 'production' && TECHNOVAHUB_ORIGIN_PATTERN.test(normalized)) return true;
+  if (TECHNOVAHUB_ORIGIN_PATTERN.test(normalized)) return true;
   return false;
 }
 
@@ -49,5 +58,6 @@ module.exports = {
   getClientUrl,
   getClientUrls,
   isAllowedClientOrigin,
+  isProductionLike,
   normalizeOrigin,
 };

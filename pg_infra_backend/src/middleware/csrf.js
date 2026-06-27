@@ -1,4 +1,5 @@
 const crypto = require('crypto');
+const { isProductionLike } = require('../utils/env');
 
 const CSRF_COOKIE = 'pg-csrf-token';
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
@@ -8,10 +9,11 @@ function createCsrfToken() {
 }
 
 function csrfCookieOptions() {
+  const productionLike = isProductionLike();
   return {
     httpOnly: false,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: productionLike,
+    sameSite: productionLike ? 'none' : 'lax',
   };
 }
 

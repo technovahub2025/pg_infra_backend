@@ -1,6 +1,7 @@
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const RefreshToken = require('../models/RefreshToken');
+const { isProductionLike } = require('./env');
 
 function getAccessSecret() {
   return process.env.JWT_ACCESS_SECRET;
@@ -33,10 +34,11 @@ async function sendTokenResponse(user, statusCode, res) {
     expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
   });
 
+  const productionLike = isProductionLike();
   const cookieOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: productionLike,
+    sameSite: productionLike ? 'none' : 'lax',
     maxAge: 7 * 24 * 60 * 60 * 1000,
   };
 

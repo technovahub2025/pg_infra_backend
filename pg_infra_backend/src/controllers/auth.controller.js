@@ -13,16 +13,17 @@ const {
   resetEmailTemplate,
 } = require('../utils/sendEmail');
 const { verifyRefreshToken } = require('../utils/jwt');
-const { getClientUrl } = require('../utils/env');
+const { getClientUrl, isProductionLike } = require('../utils/env');
 const { logAuditEvent } = require('../middleware/auditLog');
 
 const allowedRoles = ['superadmin', 'admin', 'project_manager', 'employee'];
 
 function cookieOptions() {
+  const productionLike = isProductionLike();
   return {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax',
+    secure: productionLike,
+    sameSite: productionLike ? 'none' : 'lax',
   };
 }
 
@@ -309,8 +310,8 @@ const logout = asyncHandler(async (req, res) => {
   res.clearCookie('refreshToken', refreshCookieOptions());
   res.clearCookie('pg-csrf-token', {
     httpOnly: false,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: process.env.NODE_ENV === 'production' ? 'strict' : 'lax',
+    secure: isProductionLike(),
+    sameSite: isProductionLike() ? 'none' : 'lax',
   });
 
   await logAuditEvent({
